@@ -16,6 +16,7 @@ function createServer(request: Request, env: Env) {
     async () => {
       const colo = request.cf?.colo ?? "local";
       const time = new Date().toISOString();
+      console.log("ping called", { colo, ip: request.headers.get("cf-connecting-ip") });
       return {
         content: [{ type: "text", text: `pong from ${colo} at ${time}` }],
       };
