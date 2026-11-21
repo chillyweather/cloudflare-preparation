@@ -24,6 +24,18 @@
 			"database_name": "builder-kit",
 			"database_id": "79482462-efb4-4611-af7e-a9e7a86300bc"
 		}
+	],
+	"r2_buckets": [
+		{
+			"bucket_name": "builder-kit-templates",
+			"binding": "TEMPLATES"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "FLAGS",
+			"id": "d38ea87d34754a68a4557b228a4fa4c1"
+		}
 	]
 	/**
 	 * Smart Placement

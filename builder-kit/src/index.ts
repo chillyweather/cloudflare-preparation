@@ -34,9 +34,31 @@ function createServer(request: Request, env: Env) {
       }),
     },
     async ({ name, url }) => {
-      const id = crypto.randomUUID();
+
       const owner = "anonymous"; // replaced by the signed-in user in stage 3
 
+      // 1. Feature flag: can be switched off without a deploy
+      const open = await env.FLAGS.get("registration_open");
+      if (open !== "true") {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "App registration is temporarily closed." }],
+        };
+      }
+
+      // 2. Naive rate limit: max 5 registrations per owner per hour
+      const hour = new Date().toISOString().slice(0, 13); // e.g. "2026-11-21T14"
+      const rateKey = `rate:register_app:${owner}:${hour}`;
+      const count = Number((await env.FLAGS.get(rateKey)) ?? "0");
+      if (count >= 5) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "Rate limit: max 5 registrations per hour. Try later." }],
+        };
+      }
+      await env.FLAGS.put(rateKey, String(count + 1), { expirationTtl: 3600 });
+
+      const id = crypto.randomUUID();
       await env.DB.prepare("INSERT INTO apps (id, owner, name, url) VALUES (?, ?, ?, ?)")
         .bind(id, owner, name, url)
         .run();
@@ -63,6 +85,49 @@ function createServer(request: Request, env: Env) {
 
       return {
         content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "list_templates",
+    {
+      description:
+        "List the approved app templates. Use get_template to read one before starting a new app.",
+    },
+    async () => {
+      const { objects } = await env.TEMPLATES.list({ limit: 100 });
+      const names = objects
+        .filter((o) => o.key.endsWith(".md") && !o.key.includes("/"))
+        .map((o) => o.key.replace(/\.md$/, ""));
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(names) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get_template",
+    {
+      description: "Get the full markdown of an approved app template by name (from list_templates).",
+      inputSchema: z.object({
+        name: z
+          .string()
+          .regex(/^[a-z0-9-]{1,64}$/, "Use a template name from list_templates"),
+      }),
+    },
+    async ({ name }) => {
+      const object = await env.TEMPLATES.get(`${name}.md`);
+      if (!object) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `No template named "${name}". Call list_templates.` }],
+        };
+      }
+
+      return {
+        content: [{ type: "text", text: await object.text() }],
       };
     },
   );
