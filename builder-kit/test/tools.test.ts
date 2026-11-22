@@ -80,7 +80,7 @@ describe("authentication", () => {
 describe("ping", () => {
 	it("answers pong", async () => {
 		const result = await callTool("ping");
-		expect(result.content[0].text).toMatch(/^pong from /);
+		expect(result.content[0].text).toMatch(/^ping from /);
 	});
 });
 
