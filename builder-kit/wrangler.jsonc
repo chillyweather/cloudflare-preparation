@@ -18,6 +18,10 @@
 		"enabled": true
 	},
 	"upload_source_maps": true,
+  "vars": {
+                "TEAM_DOMAIN": "https://morning-silence-0a51.cloudflareaccess.com",
+                "POLICY_AUD": "e9ee288b7a62dc88ba3b313c413af277dd91ec0d5c75ae85716326db624d78a0"
+        },
 	"d1_databases": [
 		{
 			"binding": "DB",
