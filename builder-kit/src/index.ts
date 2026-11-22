@@ -116,6 +116,28 @@ function createServer(request: Request, env: Env, user: User) {
 	);
 
 	server.registerTool(
+		"delete_app",
+		{
+			description: "Delete one of your registered apps by id (from list_my_apps).",
+			inputSchema: z.object({ id: z.uuid() }),
+		},
+		async ({ id }) => {
+			const owner = user.email;
+			const result = await env.DB.prepare("DELETE FROM apps WHERE id = ? AND owner = ?")
+				.bind(id, owner)
+				.run();
+
+			if (result.meta.changes === 0) {
+				return {
+					content: [{ type: "text", text: `No app with id ${id}. Call list_my_apps.` }],
+					isError: true,
+				};
+			}
+			return { content: [{ type: "text", text: `Deleted app ${id}` }] };
+		},
+	);
+
+	server.registerTool(
 		"list_templates",
 		{
 			description:

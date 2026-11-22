@@ -128,6 +128,56 @@ describe("apps", () => {
 	});
 });
 
+describe("delete_app", () => {
+	/** Registers an app as `owner` and returns its id (read back via list_my_apps). */
+	async function registerApp(owner: string, name: string) {
+		await env.FLAGS.put("registration_open", "true");
+		await callTool("register_app", { name, url: "https://app.example" }, owner);
+		const apps = JSON.parse((await callTool("list_my_apps", {}, owner)).content[0].text);
+		return apps.find((a: { name: string }) => a.name === name).id as string;
+	}
+	const appNames = async (owner: string) =>
+		JSON.parse((await callTool("list_my_apps", {}, owner)).content[0].text).map(
+			(a: { name: string }) => a.name,
+		);
+
+	it("deletes your own app", async () => {
+		const alice = newUser("alice");
+		const id = await registerApp(alice, "Doomed app");
+
+		const result = await callTool("delete_app", { id }, alice);
+		expect(result.isError).toBeFalsy();
+		expect(await appNames(alice)).toEqual([]);
+	});
+
+	it("cannot delete another user's app (IDOR)", async () => {
+		const [alice, bob] = [newUser("alice"), newUser("bob")];
+		const id = await registerApp(alice, "Alice app");
+
+		const result = await callTool("delete_app", { id }, bob);
+		expect(result.isError).toBe(true);
+		expect(await appNames(alice)).toEqual(["Alice app"]);
+	});
+
+	it("gives the same answer for someone else's app and a missing app", async () => {
+		const [alice, bob] = [newUser("alice"), newUser("bob")];
+		const aliceAppId = await registerApp(alice, "Alice app");
+		const missingId = crypto.randomUUID();
+
+		const othersApp = await callTool("delete_app", { id: aliceAppId }, bob);
+		const missing = await callTool("delete_app", { id: missingId }, bob);
+		const normalize = (text: string, id: string) => text.replace(id, "<id>");
+		expect(normalize(othersApp.content[0].text, aliceAppId)).toBe(
+			normalize(missing.content[0].text, missingId),
+		);
+	});
+
+	it("rejects ids that are not UUIDs", async () => {
+		const result = await callTool("delete_app", { id: "1 OR 1=1" });
+		expect(result.isError).toBe(true);
+	});
+});
+
 describe("templates", () => {
 	it("list_templates and get_template read from R2", async () => {
 		await env.TEMPLATES.put("demo.md", "# Demo");
